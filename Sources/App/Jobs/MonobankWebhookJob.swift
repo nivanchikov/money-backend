@@ -1,7 +1,6 @@
 import Vapor
 import Foundation
 import Queues
-import CryptoKit
 
 struct AccountSyncPayload: Codable {
 	let userID: User.IDValue
