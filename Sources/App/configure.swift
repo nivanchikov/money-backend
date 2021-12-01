@@ -10,32 +10,28 @@ import QueuesRedisDriver
 // configures your application
 public func configure(_ app: Application) throws {
 	// uncomment to serve files from /Public folder
-	 app.middleware.use(UniversalLinkFileMiddleware(publicDirectory: app.directory.publicDirectory))
+	app.middleware.use(UniversalLinkFileMiddleware(publicDirectory: app.directory.publicDirectory))
 
 	app.views.use(.leaf)
 
-	let jwksFilePath = app.directory.workingDirectory + (Environment.get("JWKS_KEYPAIR_FILE") ?? "Keys/keypair.jwks")
-	guard
-		let jwks = FileManager.default.contents(atPath: jwksFilePath),
-		let jwksString = String(data: jwks, encoding: .utf8)
-	else {
-		fatalError("Failed to load JWKS Keypair file at: \(jwksFilePath)")
-	}
-
-	do {
-		let apnsFilePath = app.directory.workingDirectory + (Environment.get("APNS_KEYPAIR_FILE") ?? "Keys/apns.p8")
-		let key = try ECDSAKey.private(filePath: apnsFilePath)
-
-		app.apns.configuration = .init(authenticationMethod: .jwt(key: key,
-																  keyIdentifier: JWKIdentifier(string: Environment.get("APNS_KEY_ID")!),
-																  teamIdentifier: Environment.get("APPLE_TEAM_ID")!),
-									   topic: "",
-									   environment: .production)
-	} catch {
+	guard let ecdsaPublicKey = Environment.get("JWT_SIGNING_KEY") else {
 		fatalError()
 	}
 
-	try app.jwt.signers.use(jwksJSON: jwksString)
+	let jwtKey = try ECDSAKey.public(pem: ecdsaPublicKey)
+	app.jwt.signers.use(.es512(key: jwtKey))
+
+	guard let apnsKeyString = Environment.get("ANPS_KEYPAIR_STRING") else {
+		fatalError()
+	}
+
+	let apnsKey = try ECDSAKey.private(pem: apnsKeyString)
+
+	app.apns.configuration = .init(authenticationMethod: .jwt(key: apnsKey,
+															  keyIdentifier: JWKIdentifier(string: Environment.get("APNS_KEY_ID")!),
+															  teamIdentifier: Environment.get("APPLE_TEAM_ID")!),
+								   topic: "",
+								   environment: .production)
 
 	app.jwt.apple.applicationIdentifier = Environment.get("APPLE_APPLICATION_IDENTIFIER")
 
@@ -65,7 +61,7 @@ public func configure(_ app: Application) throws {
 	app.repositories.use(.database)
 	app.randomGenerators.use(.random)
 	app.queues.use(.fluent(useSoftDeletes: false))
-
+	
 	app.queues.add(AccountSyncJob())
 
 	if app.environment == .development {
