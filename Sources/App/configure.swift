@@ -39,13 +39,17 @@ public func configure(_ app: Application) throws {
 
 	app.jwt.apple.applicationIdentifier = Environment.get("APPLE_APPLICATION_IDENTIFIER")
 
-	app.databases.use(.postgres(
-		hostname: Environment.get("DATABASE_HOST") ?? "localhost",
-		port: Environment.get("DATABASE_PORT").flatMap(Int.init(_:)) ?? PostgresConfiguration.ianaPortNumber,
-		username: Environment.get("DATABASE_USERNAME") ?? "vapor_username",
-		password: Environment.get("DATABASE_PASSWORD") ?? "vapor_password",
-		database: Environment.get("DATABASE_NAME") ?? "vapor_database"
-	), as: .psql)
+	if let url = Environment.get("DATABASE_URL").flatMap(URL.init) {
+		app.databases.use(try .postgres(url: url), as: .psql)
+	} else {
+		app.databases.use(.postgres(
+			hostname: Environment.get("DATABASE_HOST") ?? "localhost",
+			port: Environment.get("DATABASE_PORT").flatMap(Int.init(_:)) ?? PostgresConfiguration.ianaPortNumber,
+			username: Environment.get("DATABASE_USERNAME") ?? "vapor_username",
+			password: Environment.get("DATABASE_PASSWORD") ?? "vapor_password",
+			database: Environment.get("DATABASE_NAME") ?? "vapor_database"
+		), as: .psql)
+	}
 
 	app.migrations.add(CreateUser())
 	app.migrations.add(CreateRefreshToken())
