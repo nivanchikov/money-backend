@@ -14,7 +14,7 @@ public func configure(_ app: Application) throws {
 
 	app.views.use(.leaf)
 
-	let jwksFilePath = app.directory.workingDirectory + "" + (Environment.get("JWKS_KEYPAIR_FILE") ?? "keypair.jwks")
+	let jwksFilePath = app.directory.workingDirectory + (Environment.get("JWKS_KEYPAIR_FILE") ?? "Keys/keypair.jwks")
 	guard
 		let jwks = FileManager.default.contents(atPath: jwksFilePath),
 		let jwksString = String(data: jwks, encoding: .utf8)
@@ -23,7 +23,7 @@ public func configure(_ app: Application) throws {
 	}
 
 	do {
-		let apnsFilePath = app.directory.workingDirectory + (Environment.get("APNS_KEYPAIR_FILE") ?? "apns.p8")
+		let apnsFilePath = app.directory.workingDirectory + (Environment.get("APNS_KEYPAIR_FILE") ?? "Keys/apns.p8")
 		let key = try ECDSAKey.private(filePath: apnsFilePath)
 
 		app.apns.configuration = .init(authenticationMethod: .jwt(key: key,
