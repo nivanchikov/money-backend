@@ -18,8 +18,8 @@ public func configure(_ app: Application) throws {
 		fatalError()
 	}
 
-	let jwtKey = try ECDSAKey.public(pem: ecdsaPublicKey)
-	app.jwt.signers.use(.es512(key: jwtKey))
+	let jwtKey = try RSAKey.private(pem: ecdsaPublicKey)
+	app.jwt.signers.use(.rs512(key: jwtKey))
 
 	guard let apnsKeyString = Environment.get("ANPS_KEYPAIR_STRING") else {
 		fatalError()
