@@ -1,0 +1,63 @@
+import Vapor
+import Fluent
+
+protocol Repository: RequestService {}
+
+protocol DatabaseRepository: Repository {
+	var database: Database { get }
+	init(database: Database)
+}
+
+extension DatabaseRepository {
+	func `for`(_ req: Request) -> Self {
+		return Self.init(database: req.db)
+	}
+}
+
+extension Application {
+	struct Repositories {
+		struct Provider {
+			static var database: Self {
+				.init {
+					$0.repositories.use { DatabaseUsersRepository(database: $0.db) }
+//					$0.repositories.use { DatabaseEmailTokenRepository(database: $0.db) }
+					$0.repositories.use { DatabaseRefreshTokenRepository(database: $0.db) }
+					$0.repositories.use { DatabaseBankIntegrationRepository(database: $0.db) }
+				}
+			}
+
+			let run: (Application) -> ()
+		}
+
+		final class Storage {
+			var makeUsersRepository: ((Application) -> UsersRepository)?
+//			var makeEmailTokenRepository: ((Application) -> EmailTokenRepository)?
+			var makeRefreshTokenRepository: ((Application) -> RefreshTokenRepository)?
+			var makeBankIntegrationRepository: ((Application) -> BankIntegrationRepository)?
+//			var makePasswordTokenRepository: ((Application) -> PasswordTokenRepository)?
+			init() { }
+		}
+
+		struct Key: StorageKey {
+			typealias Value = Storage
+		}
+
+		let app: Application
+
+		func use(_ provider: Provider) {
+			provider.run(app)
+		}
+
+		var storage: Storage {
+			if app.storage[Key.self] == nil {
+				app.storage[Key.self] = .init()
+			}
+
+			return app.storage[Key.self]!
+		}
+	}
+
+	var repositories: Repositories {
+		.init(app: self)
+	}
+}
