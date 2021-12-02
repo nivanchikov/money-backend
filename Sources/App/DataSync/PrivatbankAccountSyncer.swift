@@ -8,7 +8,7 @@ struct PrivatbankAccountSyncer: AccountSyncProvider {
 		let box = try AES.GCM.SealedBox(combined: rawCredential)
 
 		guard let rawKey = Environment.get("ENCRYPTION_KEY") else {
-			throw Abort(.internalServerError)
+			throw Abort(.internalServerError, reason: "Encryption key is missing")
 		}
 
 		let hash = SHA256.hash(data: Data(rawKey.utf8))

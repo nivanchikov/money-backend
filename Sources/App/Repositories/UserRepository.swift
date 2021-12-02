@@ -2,6 +2,7 @@ import Vapor
 import Fluent
 
 protocol UsersRepository: Repository {
+	@discardableResult
 	func save(user: User) async throws -> User
 
 	func find(appleIdentityToken: String) async throws -> User?
@@ -28,6 +29,7 @@ struct DatabaseUsersRepository: UsersRepository, DatabaseRepository {
 		try await User.find(id, on: database)
 	}
 
+	@discardableResult
 	func save(user: User) async throws -> User {
 		try await user.save(on: database)
 		return user

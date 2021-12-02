@@ -29,7 +29,11 @@ struct AppleSignInController {
 		switch existing {
 		case .none:
 			let user = User(email: email, appleIdentityToken: token.subject.value)
-			return try await req.users.save(user: user)
+			_ = try await req.users.save(user: user)
+
+			let payload = AccountSyncPayload(userID: try user.requireID())
+			try await req.queue.dispatch(AccountSyncJob.self, payload)
+			return user
 		case let .some(user):
 			user.appleIdentityToken = token.subject.value
 			return try await req.users.save(user: user)

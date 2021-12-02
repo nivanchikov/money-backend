@@ -23,7 +23,7 @@ struct AccountSyncJob: AsyncJob {
 			try await AccountSyncer.syncAccountsInfo(for: payload.userID, application: context.application)
 			try await enqueueTask(context, payload, Date())
 		} catch {
-			context.logger.report(error: error)
+			context.logger.error("\(error)")
 			try await enqueueTask(context, payload, Date())
 		}
 	}

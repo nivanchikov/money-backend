@@ -6,8 +6,6 @@ func routes(_ app: Application) throws {
 	try unprotectedAPI.grouped("auth", "apple").register(collection: AppleSignInController())
 	try unprotectedAPI.grouped("auth").register(collection: AuthController())
 
-	try unprotectedAPI.grouped("webhooks", "monobank").register(collection: MonobankWebhooks())
-
 	let protectedAPI = unprotectedAPI.grouped(UserAuthenticator())
 
 	try protectedAPI.grouped("integrations").register(collection: BankIntegrationsController())

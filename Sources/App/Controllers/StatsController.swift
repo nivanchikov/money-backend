@@ -3,11 +3,12 @@ import Fluent
 import SQLKit
 
 struct CurrencyStats: Content {
-	init(realBalance: Int, balance: Int, currencyCode: Int, currency: String) {
+	init(realBalance: Int, balance: Int, currencyCode: Int, currency: String, updatedAt: Date) {
 		self.realBalance = realBalance
 		self.balance = balance
 		self.currencyCode = currencyCode
 		self.currency = currency
+		self.updatedAt = updatedAt
 	}
 
 	init(from decoder: Decoder) throws {
@@ -21,18 +22,22 @@ struct CurrencyStats: Content {
 		self.balance = Int(balance)!
 		self.currencyCode = Int(currencyCode)!
 		currency = try container.decode(String.self, forKey: .currency)
+
+		updatedAt = try container.decode(Date.self, forKey: .updatedAt)
 	}
 
 	let realBalance: Int
 	let balance: Int
 	let currencyCode: Int
 	let currency: String
+	let updatedAt: Date
 
 	enum CodingKeys: String, CodingKey {
 		case realBalance = "real_balance"
 		case balance = "available_balance"
 		case currencyCode = "currency_code"
 		case currency
+		case updatedAt = "updated_at"
 	}
 }
 
@@ -51,7 +56,8 @@ struct StatsController {
 			   SUM(bank_accounts.balance - bank_accounts.credit_limit) AS real_balance,
 			   SUM(bank_accounts.balance) AS available_balance,
 			   bank_accounts.currency_code,
-			   currency_codes.code as currency
+			   currency_codes.code as currency,
+				MAX(updated_at) as updated_at
 			FROM
 			   bank_accounts
 			LEFT JOIN currency_codes ON bank_accounts.currency_code = currency_codes.id

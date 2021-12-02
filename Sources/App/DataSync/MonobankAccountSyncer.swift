@@ -1,13 +1,84 @@
 import Vapor
 import Fluent
 
+func monobankSignature(time: Int, payload: String, path: String, application: Application) async throws -> String {
+	let payload = SignaturePayload(timestamp: time, payload: payload, path: path)
+
+	let data = try await application.client.post(URI(string: "https://oleksandryolkin.com/mb/mbs.php")) { req in
+		try req.content.encode(payload)
+	}
+
+	guard let signature = data.body.flatMap({ $0.getString(at: 0, length: $0.readableBytes) }) else {
+		throw Abort(.internalServerError, reason: "Failed to decode string from signature body")
+	}
+
+	return signature
+}
+
+func monobankGetRequest<ResponsePayload: Decodable>(_: ResponsePayload.Type,
+										 path: String,
+										 payloadHeader: (name: String, value: String),
+										 application: Application) async throws -> ResponsePayload {
+	let time = Int(Date().timeIntervalSince1970)
+
+	let signature = try await monobankSignature(time: time, payload: payloadHeader.value, path: path, application: application)
+
+	let uri = URI(string: "https://api.monobank.ua" + path)
+
+	var headers = HTTPHeaders()
+	headers.add(name: "X-Key-Id", value: Environment.get("MONOBANK_API_KEY")!)
+	headers.add(name: "X-Time", value: String(describing: time))
+	headers.add(name: "X-Sign", value: signature)
+	headers.add(name: payloadHeader.name, value: payloadHeader.value)
+
+	let response = try await application.client.get(uri, headers: headers)
+
+	let decoder = JSONDecoder()
+	decoder.dateDecodingStrategy = .secondsSince1970
+
+	let decoded = try response.content.decode(ResponsePayload.self, using: decoder)
+	return decoded
+}
+
+func monobankPostRequest<ResponsePayload>(_: ResponsePayload.Type,
+										  path: String,
+										  payloadHeader: (name: String, value: String),
+										  additionalHeaders: HTTPHeaders? = nil,
+										  beforeSend: (inout ClientRequest) throws -> () = { _ in },
+										  application: Application) async throws -> ResponsePayload where ResponsePayload: Decodable
+{
+	let time = Int(Date().timeIntervalSince1970)
+
+	let signature = try await monobankSignature(time: time, payload: payloadHeader.value, path: path, application: application)
+
+	let uri = URI(string: "https://api.monobank.ua" + path)
+
+	var headers = HTTPHeaders()
+	headers.add(name: "X-Key-Id", value: Environment.get("MONOBANK_API_KEY")!)
+	headers.add(name: "X-Time", value: String(describing: time))
+	headers.add(name: "X-Sign", value: signature)
+	headers.add(name: payloadHeader.name, value: payloadHeader.value)
+
+	if let additionalHeaders = additionalHeaders {
+		headers.add(contentsOf: additionalHeaders)
+	}
+
+	let response = try await application.client.post(uri, headers: headers, beforeSend: beforeSend)
+
+	let decoder = JSONDecoder()
+	decoder.dateDecodingStrategy = .secondsSince1970
+
+	let decoded = try response.content.decode(ResponsePayload.self, using: decoder)
+	return decoded
+}
+
 struct MonobankAccountSyncer: AccountSyncProvider {
 	static func syncAccount(from integration: BankIntegration, application: Application) async throws {
 		let rawCredential = integration.credential
 		let box = try AES.GCM.SealedBox(combined: rawCredential)
 
 		guard let rawKey = Environment.get("ENCRYPTION_KEY") else {
-			throw Abort(.internalServerError)
+			throw Abort(.internalServerError, reason: "Encryption key is missing")
 		}
 
 		let hash = SHA256.hash(data: Data(rawKey.utf8))
@@ -15,31 +86,17 @@ struct MonobankAccountSyncer: AccountSyncProvider {
 		let unsealed = try AES.GCM.open(box, using: key)
 
 		guard let credential = String(data: unsealed, encoding: .utf8) else {
-			throw Abort(.internalServerError)
+			throw Abort(.internalServerError, reason: "Failed to decode monobank credential")
 		}
 
 		try await syncAccounts(userID: integration.$user.id, credential: credential, application: application)
 	}
 
-	private static func signature(time: Int, credential: String, path: String, application: Application) async throws -> String {
-		let payload = SignaturePayload(timestamp: time, payload: credential, path: path)
-
-		let data = try await application.client.post(URI(string: "https://oleksandryolkin.com/mb/mbs.php")) { req in
-			try req.content.encode(payload)
-		}
-
-		guard let signature = data.body.flatMap({ $0.getString(at: 0, length: $0.readableBytes) }) else {
-			throw Abort(.internalServerError)
-		}
-
-		return signature
-	}
-
 	private static func syncAccounts(userID: User.IDValue, credential: String, application: Application) async throws {
-		let result = try await request(MonobankAccountsResponse.self,
-									   path: "/personal/client-info",
-									   credential: credential,
-									   application: application)
+		let result = try await monobankGetRequest(MonobankAccountsResponse.self,
+											   path: "/personal/client-info",
+											   payloadHeader: ("X-Request-Id", credential),
+											   application: application)
 
 		let bankAccounts = result.accounts.map { BankAccount(account: $0, userID: userID) }
 
@@ -87,9 +144,10 @@ struct MonobankAccountSyncer: AccountSyncProvider {
 			String(describing: Int(to.timeIntervalSince1970))
 		].joined(separator: "/")
 
-		let transactions = try await request([MonobankTransactionDTO].self, path: path, credential: credential, application: application)
-
-		application.logger.info("Fetched \(transactions.count) transactions for \(accountID)")
+		let transactions = try await monobankGetRequest([MonobankTransactionDTO].self,
+													 path: path,
+													 payloadHeader: ("X-Request-Id", credential),
+													 application: application)
 
 		for transaction in transactions {
 			let dbo = BankTransaction(id: transaction.id, accountID: accountID,
@@ -99,7 +157,7 @@ struct MonobankAccountSyncer: AccountSyncProvider {
 									  operationAmount: transaction.operationAmount,
 									  currencyCode: transaction.currencyCode,
 									  comissionRate: transaction.commissionRate,
-									  balanceRest: transaction.balance)
+									  balanceRest: transaction.balance - account.creditLimit)
 
 			do {
 				try await dbo.create(on: application.db)
@@ -110,27 +168,5 @@ struct MonobankAccountSyncer: AccountSyncProvider {
 		}
 	}
 
-	private static func request<Payload: Decodable>(_: Payload.Type, path: String, credential: String, application: Application) async throws -> Payload {
-		let time = Int(Date().timeIntervalSince1970)
 
-		let signature = try await signature(time: time, credential: credential, path: path, application: application)
-
-		let uri = URI(string: "https://api.monobank.ua" + path)
-
-		var headers = HTTPHeaders()
-		headers.add(name: "X-Key-Id", value: Environment.get("MONOBANK_API_KEY")!)
-		headers.add(name: "X-Time", value: String(describing: time))
-		headers.add(name: "X-Request-Id", value: credential)
-		headers.add(name: "X-Sign", value: signature)
-
-		let response = try await application.client.get(uri, headers: headers)
-
-//		application.logger.info("\(response)")
-
-		let decoder = JSONDecoder()
-		decoder.dateDecodingStrategy = .secondsSince1970
-
-		let decoded = try response.content.decode(Payload.self, using: decoder)
-		return decoded
-	}
 }

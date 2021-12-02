@@ -3,13 +3,19 @@ import Vapor
 
 struct SignaturePayload: Content {
 	let timestamp: Int
-	let payload: Any
+	let payload: String
 	let path: String
 
 	init(timestamp: Int, payload: Any, path: String) {
 		self.timestamp = timestamp
-		self.payload = payload
 		self.path = path
+
+		switch payload {
+		case let p as String:
+			self.payload = p
+		default:
+			self.payload = String(describing: payload)
+		}
 	}
 
 	enum CodingKeys: String, CodingKey {
@@ -30,17 +36,9 @@ struct SignaturePayload: Content {
 		var container = encoder.container(keyedBy: CodingKeys.self)
 
 		let sTimestamp = String(timestamp)
-		let sPayload: String
-
-		switch payload {
-		case let p as String:
-			sPayload = p
-		default:
-			sPayload = String(describing: payload)
-		}
 
 		try container.encode(base64Encode(sTimestamp), forKey: .timestamp)
-		try container.encode(base64Encode(sPayload), forKey: .payload)
+		try container.encode(base64Encode(payload), forKey: .payload)
 		try container.encode(base64Encode(path), forKey: .path)
 	}
 
