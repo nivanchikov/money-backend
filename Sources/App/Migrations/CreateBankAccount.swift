@@ -18,3 +18,4 @@ struct CreateBankAccount: AsyncMigration {
 			.create()
 	}
 }
+

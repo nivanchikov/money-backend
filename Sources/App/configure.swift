@@ -54,6 +54,8 @@ public func configure(_ app: Application) throws {
 	app.migrations.add(CreateBankAccount())
 	app.migrations.add(CreateCurrencyCode())
 	app.migrations.add(CreateBankTransaction())
+	app.migrations.add(CreatePartsPayment())
+	app.migrations.add(CreateSubscriptionPayment())
 
 	// register routes
 	try routes(app)
@@ -66,9 +68,21 @@ public func configure(_ app: Application) throws {
 
 	if app.environment == .development {
 		try app.autoMigrate().wait()
-		try app.queues.startInProcessJobs(on: .default)
+
+		try JobModel.query(on: app.db).delete().wait()
 
 		let payload = AccountSyncPayload(userID: 1)
 		try app.queues.queue.dispatch(AccountSyncJob.self, payload).wait()
+
+		try app.queues.startInProcessJobs(on: .default)
 	}
+}
+
+class JobModel: Model {
+	@ID(key: .id)
+	var id: UUID?
+
+	public required init() {}
+
+	public static var schema = "_jobs"
 }

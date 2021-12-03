@@ -43,26 +43,26 @@ struct AccountsController {
 		return accounts
 	}
 
-	func getRequiredPayments(_ req: Request) async throws -> HTTPStatus {
-		let auth = try req.auth.require(Payload.self)
-
-		guard let _ = try await User.find(auth.userID, on: req.db) else {
-			throw Abort(.unauthorized)
-		}
-
-		let dbAccounts = try await BankAccount.query(on: req.db)
-								.filter(\.$user.$id == auth.userID)
-								.filter(\.$creditLimit > 0).all()
-
-//		for account
-		return .ok
-	}
+//	func getRequiredPayments(_ req: Request) async throws -> HTTPStatus {
+//		let auth = try req.auth.require(Payload.self)
+//
+//		guard let _ = try await User.find(auth.userID, on: req.db) else {
+//			throw Abort(.unauthorized)
+//		}
+//
+//		let dbAccounts = try await BankAccount.query(on: req.db)
+//								.filter(\.$user.$id == auth.userID)
+//								.filter(\.$creditLimit > 0)
+//								.filter(\.balance)
+//
+//		return .ok
+//	}
 }
 
 extension AccountsController: RouteCollection {
 	func boot(routes: RoutesBuilder) throws {
 		routes.get("", use: getAccounts)
 		routes.get("refresh", use: refreshAccounts)
-		routes.get("required_payments", use: getRequiredPayments)
+//		routes.get("required_payments", use: getRequiredPayments)
 	}
 }

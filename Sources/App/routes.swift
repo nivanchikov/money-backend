@@ -12,6 +12,7 @@ func routes(_ app: Application) throws {
 	try protectedAPI.grouped("accounts").register(collection: AccountsController())
 	try protectedAPI.grouped("transactions").register(collection: TransactionsController())
 	try protectedAPI.grouped("stats").register(collection: StatsController())
+	try protectedAPI.grouped("recurring").register(collection: RecurringPaymentsController())
 
 	if app.environment == .development {
 		try unprotectedAPI.grouped("debug").register(collection: DevController())
