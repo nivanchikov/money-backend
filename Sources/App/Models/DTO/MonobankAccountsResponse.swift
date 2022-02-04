@@ -7,6 +7,7 @@ enum AccountType: String, Content {
 	case iron
 	case fop
 	case yellow
+	case eAid
 }
 
 struct MonobankAccountsResponse: Content {

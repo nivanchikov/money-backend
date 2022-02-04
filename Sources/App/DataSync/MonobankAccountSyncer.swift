@@ -12,7 +12,7 @@ func monobankSignature(time: Int, payload: String, path: String, application: Ap
 		throw Abort(.internalServerError, reason: "Failed to decode string from signature body")
 	}
 
-	return signature
+	return signature.trimmingCharacters(in: .whitespacesAndNewlines)
 }
 
 func monobankGetRequest<ResponsePayload: Decodable>(_: ResponsePayload.Type,
@@ -126,12 +126,19 @@ struct MonobankAccountSyncer: AccountSyncProvider {
 										  credential: String,
 										  application: Application) async throws {
 		let fromFinal: Date
+		var toFinal = to
+		let calendar = Calendar(identifier: .gregorian)
 
 		switch from {
 		case let .some(date):
 			fromFinal = date
+
+			let components = calendar.dateComponents([.day], from: date, to: to)
+
+			if let days = components.day, days > 30 {
+				toFinal = calendar.date(byAdding: .day, value: 30, to: date)!
+			}
 		case .none:
-			let calendar = Calendar(identifier: .gregorian)
 			fromFinal = calendar.date(byAdding: .day, value: -30, to: to)!
 		}
 
@@ -141,7 +148,7 @@ struct MonobankAccountSyncer: AccountSyncProvider {
 			"/personal/statement",
 			accountID,
 			String(describing: Int(fromFinal.timeIntervalSince1970)),
-			String(describing: Int(to.timeIntervalSince1970))
+			String(describing: Int(toFinal.timeIntervalSince1970))
 		].joined(separator: "/")
 
 		let transactions = try await monobankGetRequest([MonobankTransactionDTO].self,
