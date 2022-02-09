@@ -16,7 +16,8 @@ let package = Package(
 		.package(url: "https://github.com/vapor/apns.git", from: "2.0.0"),
 		.package(name: "QueuesFluentDriver", url: "https://github.com/m-barthelemy/vapor-queues-fluent-driver.git", from: "1.2.0"),
 		.package(url: "https://github.com/vapor/queues-redis-driver.git", from: "1.0.0"),
-		.package(url: "https://github.com/tadija/AEXML.git", from: "4.6.1")
+		.package(url: "https://github.com/tadija/AEXML.git", from: "4.6.1"),
+		.package(url: "https://github.com/jagreenwood/swift-log-datadog.git", from: "0.0.1")
     ],
     targets: [
         .target(
@@ -30,7 +31,8 @@ let package = Package(
 				.product(name: "APNS", package: "apns"),
 				.product(name: "QueuesFluentDriver", package: "QueuesFluentDriver"),
 				.product(name: "QueuesRedisDriver", package: "queues-redis-driver"),
-				.product(name: "AEXML", package: "AEXML")
+				.product(name: "AEXML", package: "AEXML"),
+				.product(name: "DataDogLog", package: "swift-log-datadog")
             ],
             swiftSettings: [
                 // Enable better optimizations when building in Release configuration. Despite the use of
