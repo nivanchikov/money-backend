@@ -33,6 +33,11 @@ func monobankGetRequest<ResponsePayload: Decodable>(_: ResponsePayload.Type,
 
 	let response = try await application.client.get(uri, headers: headers)
 
+	if let resp = response.body {
+		let data = Data(buffer: resp)
+		application.logger.error("\(uri) \(String(data: data, encoding: .utf8))", metadata: nil)
+	}
+
 	let decoder = JSONDecoder()
 	decoder.dateDecodingStrategy = .secondsSince1970
 
@@ -64,6 +69,11 @@ func monobankPostRequest<ResponsePayload>(_: ResponsePayload.Type,
 	}
 
 	let response = try await application.client.post(uri, headers: headers, beforeSend: beforeSend)
+
+	if let resp = response.body {
+		let data = Data(buffer: resp)
+		application.logger.error("\(uri) \(String(data: data, encoding: .utf8))", metadata: nil)
+	}
 
 	let decoder = JSONDecoder()
 	decoder.dateDecodingStrategy = .secondsSince1970
