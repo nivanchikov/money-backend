@@ -86,6 +86,8 @@ struct BankIntegrationsController {
 
 		let uri = URI(scheme: .https, host: Environment.get("SERVER_NAME"), path: "api/integrations/monobank/connect/\(auth.userID)")
 
+		req.logger.notice("Binding to \(uri)", metadata: nil)
+
 		let permissionsHeader: (String, String) = ("X-Permissions", "s")
 		let headers: HTTPHeaders = ["X-Callback" : uri.string]
 
