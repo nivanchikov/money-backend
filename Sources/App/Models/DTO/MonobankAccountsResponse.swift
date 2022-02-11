@@ -1,5 +1,15 @@
 import Vapor
 
+enum AccountType: String, Content {
+	case black
+	case white
+	case platinum
+	case iron
+	case fop
+	case yellow
+	case eAid
+}
+
 struct MonobankAccountsResponse: Content {
 	let clientId: String
 	let accounts: [MonobankAccountDTO]
@@ -11,6 +21,7 @@ struct MonobankAccountDTO: Content {
 	let balance: Int
 	let creditLimit: Int
 	let number: [String]
+	let type: AccountType
 	let iban: String
 
 	enum CodingKeys: String, CodingKey {
@@ -19,6 +30,7 @@ struct MonobankAccountDTO: Content {
 		case balance
 		case creditLimit
 		case number = "maskedPan"
+		case type
 		case iban
 	}
 }
